@@ -5,7 +5,8 @@ import json
 import pandas as pd
 
 from utils.get_data import get_product_feed, get_lc_perfume_data
-from utils.download_image import download_image, FRAGRANTICA_IMAGE_DIR
+from utils.download_image import download_image
+from utils.enviroment import FRAGRANTICA_IMAGE_DIR
 
 
 def insert_image_name_to_df(df, prod_name, image_name):
@@ -53,6 +54,7 @@ for prod_name, image_url in frag_data[["name", "image"]].values:
 
 # COMMAND ----------
 
+# TODO: use uc table
 spark.createDataFrame(frag_data).write.parquet(
     "/mnt/stg/house_of_fragrance/fragrantica_attribute.parquet",
     mode="overwrite",

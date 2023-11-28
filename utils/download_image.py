@@ -5,10 +5,6 @@ import http.client
 import time
 
 
-FRAGRANTICA_IMAGE_DIR= "/dbfs/mnt/stg/house_of_fragrance/fragrantica_images"
-os.makedirs(FRAGRANTICA_IMAGE_DIR, exist_ok=True)
-
-
 def get_image_name(product_name, image_url):
     _id = image_url.split(".")[-2]
     product_name = product_name.replace(" ", "_")
