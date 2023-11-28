@@ -1,4 +1,7 @@
 # Databricks notebook source
+# MAGIC %run "/utils/spark_utils"
+
+# COMMAND ----------
 import os
 import glob
 import json
@@ -6,7 +9,12 @@ import pandas as pd
 
 from utils.get_data import get_product_feed, get_lc_perfume_data
 from utils.download_image import download_image
-from utils.enviroment import FRAGRANTICA_IMAGE_DIR
+from utils.enviroment import (
+    FRAGRANTICA_DIR,
+    FRAGRANTICA_IMAGE_DIR,
+    FRAGRANTICA_ATTRIBUTE,
+    LC_ATTRIBUTE,
+)
 
 
 def insert_image_name_to_df(df, prod_name, image_name):
@@ -21,7 +29,7 @@ lc_data = get_lc_perfume_data(product_feed)
 # COMMAND ----------
 
 # get fragrantica data
-fragrantica_path = "/dbfs/mnt/stg/house_of_fragrance/fragrantica_scraping/"
+fragrantica_path = os.path.join(FRAGRANTICA_DIR, "scraping")
 brand_folder = [f for f in os.listdir(fragrantica_path) if os.path.isdir(os.path.join(fragrantica_path, f))]
 
 all_products = []
@@ -54,15 +62,20 @@ for prod_name, image_url in frag_data[["name", "image"]].values:
 
 # COMMAND ----------
 
-# TODO: use uc table
-spark.createDataFrame(frag_data).write.parquet(
-    "/mnt/stg/house_of_fragrance/fragrantica_attribute.parquet",
-    mode="overwrite",
+create_or_insertoverwrite_table(
+    spark.createDataFrame(frag_data),
+    FRAGRANTICA_ATTRIBUTE.split(".")[0],
+    FRAGRANTICA_ATTRIBUTE.split(".")[1],
+    FRAGRANTICA_ATTRIBUTE.split(".")[2],
+    ds_managed=True,
 )
 
-lc_data.write.parquet(
-    "/mnt/stg/house_of_fragrance/lc_perfume_attribute.parquet",
-    mode="overwrite",
+create_or_insertoverwrite_table(
+    lc_data,
+    LC_ATTRIBUTE.split(".")[0],
+    LC_ATTRIBUTE.split(".")[1],
+    LC_ATTRIBUTE.split(".")[2],
+    ds_managed=True,
 )
 
 # COMMAND ----------
