@@ -9,8 +9,8 @@ if TYPE_CHECKING:
 from utils.enviroment import (
     FRAGRANTICA_IMAGE_DIR,
     VIT_MODEL_PATH,
-    VIT_ENCODING_PATH,
-    VIT_FRAGRANTICA_TABLE,
+    FRAGRANTICA_VIT_ENCODING_PATH,
+    FRAGRANTICA_VIT_TABLE,
     FRAGRANTICA_ATTRIBUTE,
 )
 
@@ -30,7 +30,7 @@ print(f"num images: {len(image_list)}")
 # COMMAND ----------
 
 # if prod is in existing records, don't encode again
-if spark.catalog.tableExists(VIT_FRAGRANTICA_TABLE):
+if spark.catalog.tableExists(FRAGRANTICA_VIT_TABLE):
     spark.createDataFrame(
         pd.DataFrame(image_list, columns=["image_name"])
     ).createOrReplaceTempView("AllImages")
@@ -38,7 +38,7 @@ if spark.catalog.tableExists(VIT_FRAGRANTICA_TABLE):
     image_list = spark.sql(f"""
 SELECT a.image_name 
 FROM AllImages a 
-LEFT ANTI JOIN {VIT_FRAGRANTICA_TABLE} b USING (image_name)
+LEFT ANTI JOIN {FRAGRANTICA_VIT_TABLE} b USING (image_name)
 """).toPandas().values.flatten()
 print(f"data size: {len(image_list)}")
 
@@ -49,9 +49,9 @@ transformer = VitTransformer(
     model_name=model_name,
     model_path=VIT_MODEL_PATH,
     image_path=FRAGRANTICA_IMAGE_DIR,
-    encoding_path=VIT_ENCODING_PATH,
+    encoding_path=FRAGRANTICA_VIT_ENCODING_PATH,
     id_name="image_name",
-    table_name=VIT_FRAGRANTICA_TABLE,
+    table_name=FRAGRANTICA_VIT_TABLE,
 )
 transformer.transform(
     id_list=image_list,
