@@ -43,7 +43,7 @@ def download_image(image_url, product_name, image_dir):
     image_name = get_image_name(product_name, image_url)
     dest_path = os.path.join(image_dir, image_name)
     if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-        return
+        return image_name
 
     with _retry_get_request(image_url, tries=5, delay=1, max_delay=10, backoff=2) as r:
         if r.status_code != 200:

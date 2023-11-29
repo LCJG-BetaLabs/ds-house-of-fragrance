@@ -5,9 +5,9 @@ FRAGRANTICA_IMAGE_DIR = os.path.join(FRAGRANTICA_DIR, "images") # "/dbfs/mnt/stg
 os.makedirs(FRAGRANTICA_IMAGE_DIR, exist_ok=True)
 
 catalog = "lc_dev"
-FRAGRANTICA_ATTRIBUTE = f"{catalog}.ml_house_of_fragrance_sliver.fragrantica_attribute"
+FRAGRANTICA_ATTRIBUTE = f"{catalog}.ml_house_of_fragrance_silver.fragrantica_attribute"
 
-LC_ATTRIBUTE = f"{catalog}.ml_house_of_fragrance_sliver.lc_attribute"
+LC_ATTRIBUTE = f"{catalog}.ml_house_of_fragrance_silver.lc_attribute"
 LC_VIT_ENCODING_PATH = "/Volumes/lc_prd/ml_data_preproc_silver/encoding/vit"
 LC_VIT_TABLE = "lc_prd.ml_data_preproc_silver.encoding_vit"
 

@@ -1,3 +1,4 @@
+from databricks.sdk.runtime import spark
 
 
 def get_product_feed():

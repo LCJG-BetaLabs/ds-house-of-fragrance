@@ -2,6 +2,7 @@
 # MAGIC %run "/utils/spark_utils"
 
 # COMMAND ----------
+
 import os
 import glob
 import json
@@ -51,6 +52,10 @@ frag_data = pd.concat(all_products)
 
 # COMMAND ----------
 
+frag_data.columns = frag_data.columns.str.replace(" ", "_")
+
+# COMMAND ----------
+
 if "image_name" not in frag_data.columns:
     frag_data["image_name"] = None
 
@@ -62,8 +67,9 @@ for prod_name, image_url in frag_data[["name", "image"]].values:
 
 # COMMAND ----------
 
+
 create_or_insertoverwrite_table(
-    spark.createDataFrame(frag_data),
+    spark.createDataFrame(frag_data.fillna("")),
     FRAGRANTICA_ATTRIBUTE.split(".")[0],
     FRAGRANTICA_ATTRIBUTE.split(".")[1],
     FRAGRANTICA_ATTRIBUTE.split(".")[2],
