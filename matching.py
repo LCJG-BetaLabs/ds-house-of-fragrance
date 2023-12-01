@@ -94,7 +94,6 @@ lc_attr = lc_attr.merge(lc_vit_df, on="atg_code", how="inner")
 
 # brand name mapping for handling discrepancy of brand name
 brand_name_mapping = pd.read_csv("/dbfs/mnt/stg/house_of_fragrance/fragrantica/scraping/brand_name_mapping.csv")
-brand_name_mapping
 
 # COMMAND ----------
 
@@ -143,29 +142,13 @@ matching_result_by_brand = {}  # result dict
 
 # COMMAND ----------
 
-set(lc_brand.unique())
-
-# COMMAND ----------
-
-len(lc_brand.unique())
-
-# COMMAND ----------
-
-f_brand.unique()
-
-# COMMAND ----------
-
-common_brands
+print(f"num of brand in LC {len(lc_brand.unique())}, num of common brands {len(common_brands)}")
 
 # COMMAND ----------
 
 def get_sim(lc_id, f_id, sim_array):
     sim = sim_array[_lc_ids == lc_id, _f_ids == f_id]
     return sim[0]
-
-# COMMAND ----------
-
-lc_attr
 
 # COMMAND ----------
 
@@ -181,13 +164,10 @@ def jaccard_similarity(set1, set2):
     """
     Computes the Jaccard similarity between two sets.
     """
-    print(set1, set2)
     if len(set1) == 0 or len(set2) == 0:
         return 0
     intersection = len(set1.intersection(set2))
-    print(intersection)
     union = len(set1.union(set2))
-    print(union)
     similarity = intersection / union
     return similarity
 
@@ -230,66 +210,90 @@ result = pd.concat(result)
 
 # COMMAND ----------
 
-result
+filtered_result = result[result["similar_name"] > 0]
 
 # COMMAND ----------
 
-test = result[result["similar_name"] > 0]
-
-# COMMAND ----------
-
-max_value_rows = test.loc[test.groupby("atg_code")["sim"].transform(max) == test["sim"]]
-
-# COMMAND ----------
-
-get_token("signature oud")
-
-# COMMAND ----------
-
-get_token("sandalo")
-
-# COMMAND ----------
-
-jaccard_similarity(get_token("signature oud"), get_token("sandalo"))
-
-# COMMAND ----------
-
-max_value_rows
+filtered_result = filtered_result.loc[filtered_result.groupby("atg_code")["sim"].transform(max) == filtered_result["sim"]]
 
 # COMMAND ----------
 
 # fix
-max_value_rows["main_accords"] = max_value_rows["main_accords"].apply(
+filtered_result["main_accords"] = filtered_result["main_accords"].apply(
     lambda x: {key.replace(' ', '_'):value for key,value in x.items()} 
 )
-max_value_rows["longevity"] = max_value_rows["longevity"].apply(
+filtered_result["longevity"] = filtered_result["longevity"].apply(
     lambda x: {key.replace(' ', '_'):value for key,value in x.items()} 
 )
-max_value_rows["price_value"] = max_value_rows["price_value"].apply(
+filtered_result["price_value"] = filtered_result["price_value"].apply(
     lambda x: {key.replace(' ', '_'):value for key,value in x.items()} 
 )
-max_value_rows["gender_vote"] = max_value_rows["gender_vote"].apply(
+filtered_result["gender_vote"] = filtered_result["gender_vote"].apply(
     lambda x: {key.replace(' ', '_'):value for key,value in x.items()} 
 )
 
 # COMMAND ----------
 
-max_value_rows.loc[69, "main_accords"]
+# tidy up columns
+filtered_result = filtered_result[
+    [
+        "atg_code",
+        "style",
+        "color_desc",
+        "prod_desc_eng",
+        "prod_desc_tc",
+        "brand_desc_x",
+        "category_desc",
+        "class_desc",
+        "subclass_desc",
+        "display_name",
+        "long_desc",
+        "care",
+        "img_list",
+        "encoding_x",
+        "prod_desc_eng_cleaned",
+        "name",
+        "company",
+        "image",
+        "for_gender",
+        "rating",
+        "number_votes",
+        "main_accords",
+        "description",
+        "top_notes",
+        "middle_notes",
+        "base_notes",
+        "longevity",
+        "sillage",
+        "gender_vote",
+        "price_value",
+        "image_name",
+        "encoding_y",
+        "brand_desc_y",
+        "name_cleaned",
+        "sim",
+        "similar_name",
+    ]
+].rename(
+    columns={
+        "brand_desc_x": "brand_desc",
+        "encoding_x": "lc_vit_encoding",
+        "name": "fragrantica_prod_name",
+        "brand_desc_y": "fragrantica_brand",
+        "encoding_y": "fragrantica_vit_encoding",
+        "name_cleaned": "fragrantica_prod_name_cleaned",
+        "sim": "vit_sim",
+    }
+)
 
 # COMMAND ----------
 
-max_value_rows[["atg_code", "prod_desc_eng", "brand_desc_x", "name", "image", "sim", "similar_name", "prod_desc_eng_cleaned", "name_cleaned"]]
+filtered_result.columns
 
 # COMMAND ----------
-
-pd.set_option('display.max_rows', 5)
-
-# COMMAND ----------
-
-LC_FRAGRANTICA_MATCHING = "lc_dev.ml_house_of_fragrance_silver.lc_fragrantica_matching"
 
 create_or_insertoverwrite_table(
-    spark.createDataFrame(max_value_rows),
+    spark.createDataFrame(filtered_result),
     LC_FRAGRANTICA_MATCHING.split(".")[0],
     LC_FRAGRANTICA_MATCHING.split(".")[1],
     LC_FRAGRANTICA_MATCHING.split(".")[2],
