@@ -16,6 +16,7 @@ from utils.enviroment import (
     LC_VIT_ENCODING_PATH,
     FRAGRANTICA_VIT_TABLE,
     FRAGRANTICA_VIT_ENCODING_PATH,
+    LC_FRAGRANTICA_MATCHING,
 )
 
 from sklearn.metrics.pairwise import cosine_similarity
@@ -218,7 +219,7 @@ filtered_result = filtered_result.loc[filtered_result.groupby("atg_code")["sim"]
 
 # COMMAND ----------
 
-# fix
+# for saving to uc, cannot have space in schema
 filtered_result["main_accords"] = filtered_result["main_accords"].apply(
     lambda x: {key.replace(' ', '_'):value for key,value in x.items()} 
 )
@@ -252,6 +253,9 @@ filtered_result = filtered_result[
         "img_list",
         "encoding_x",
         "prod_desc_eng_cleaned",
+        "price_cn",
+        "price_hk",
+        "price_row",
         "name",
         "company",
         "image",
@@ -285,10 +289,6 @@ filtered_result = filtered_result[
         "sim": "vit_sim",
     }
 )
-
-# COMMAND ----------
-
-filtered_result.columns
 
 # COMMAND ----------
 
