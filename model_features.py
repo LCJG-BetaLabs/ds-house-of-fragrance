@@ -1,7 +1,13 @@
 # Databricks notebook source
-from utils.enviroment import LC_FRAGRANTICA_MATCHING
+import os
 import pandas as pd
+from utils.enviroment import BASE_DIR, LC_FRAGRANTICA_MATCHING
 import pyspark.sql.functions as f
+
+# COMMAND ----------
+
+feature_dir = os.path.join(BASE_DIR, "model_features")
+os.makedirs(feature_dir, exist_ok=True)
 
 # COMMAND ----------
 
@@ -19,6 +25,7 @@ matching_result = matching_result.select(
     "rating",
     "number_votes",
     "main_accords",
+    "season_rating",
     "description",
     "top_notes",
     "middle_notes",
@@ -28,6 +35,11 @@ matching_result = matching_result.select(
     "gender_vote",
     "price_value",
 )
+
+# COMMAND ----------
+
+def save_feature_df(df, filename):
+    df.write.parquet(os.path.join(feature_dir.replace("/dbfs", ""), f"{filename}.parquet"), mode="overwrite")
 
 # COMMAND ----------
 
@@ -74,7 +86,7 @@ def one_hot_encoding(
             "atg_code",
             *[
                 f.expr(
-                    "IF({} = '{}', 1, 0) AS `{}{}{}`".format(
+                    """IF({} = "{}", 1, 0) AS `{}{}{}`""".format(
                         feature, label, prefix, label.replace(" ", "_"), postfix
                     )
                 )
@@ -86,7 +98,7 @@ def one_hot_encoding(
 # COMMAND ----------
 
 brand = one_hot_encoding("brand_desc")
-display(brand)
+save_feature_df(brand, "brand")
 
 # COMMAND ----------
 
@@ -104,19 +116,19 @@ def one_hot_pd(df, feature):
 
 df = matching_result.select("atg_code", "top_notes").toPandas()
 top_notes = one_hot_pd(df, "top_notes")
-top_notes
+save_feature_df(spark.createDataFrame(top_notes), "top_notes")
 
 # COMMAND ----------
 
 df = matching_result.select("atg_code", "middle_notes").toPandas()
 middle_notes = one_hot_pd(df, "middle_notes")
-middle_notes
+save_feature_df(spark.createDataFrame(middle_notes), "middle_notes")
 
 # COMMAND ----------
 
 df = matching_result.select("atg_code", "base_notes").toPandas()
 base_notes = one_hot_pd(df, "base_notes")
-base_notes
+save_feature_df(spark.createDataFrame(base_notes), "base_notes")
 
 # COMMAND ----------
 
@@ -127,28 +139,44 @@ def encode_column_of_dict(df, feature):
 
 # COMMAND ----------
 
+def add_prefix(df, prefix):
+    new_colname = [prefix + col for col in df.columns if col != "atg_code"]
+    df.columns = ["atg_code"] + new_colname
+
+# COMMAND ----------
+
 main_accords = encode_column_of_dict(matching_result, "main_accords")
-main_accords
+save_feature_df(spark.createDataFrame(main_accords), "main_accords")
 
 # COMMAND ----------
 
 longevity = encode_column_of_dict(matching_result, "longevity")
-longevity
+add_prefix(longevity, "longevity_")
+save_feature_df(spark.createDataFrame(longevity), "longevity")
 
 # COMMAND ----------
 
 sillage = encode_column_of_dict(matching_result, "sillage")
-sillage
+add_prefix(sillage, "sillage_")
+save_feature_df(spark.createDataFrame(sillage), "sillage")
 
 # COMMAND ----------
 
 gender_vote = encode_column_of_dict(matching_result, "gender_vote")
-gender_vote
+add_prefix(gender_vote, "gender_vote_")
+save_feature_df(spark.createDataFrame(gender_vote), "gender_vote")
 
 # COMMAND ----------
 
 price_value = encode_column_of_dict(matching_result, "price_value")
-price_value
+add_prefix(price_value, "price_value_")
+save_feature_df(spark.createDataFrame(price_value), "price_value")
+
+# COMMAND ----------
+
+season = encode_column_of_dict(matching_result, "season_rating")
+add_prefix(season, "season_")
+save_feature_df(spark.createDataFrame(season), "season")
 
 # COMMAND ----------
 
