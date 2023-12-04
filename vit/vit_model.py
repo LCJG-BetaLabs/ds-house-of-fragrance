@@ -1,4 +1,7 @@
 # Databricks notebook source
+# MAGIC %run ./utils
+
+# COMMAND ----------
 
 from PIL import Image, ImageFile
 
@@ -11,7 +14,10 @@ import timm
 from timm.data import resolve_data_config
 from timm.data.transforms_factory import create_transform
 
-from vit.utils import PadToSquare
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from vit.utils import PadToSquare
 
 
 def open_and_preprocess(img_filename: str, preprocess_fn=None) -> torch.Tensor:

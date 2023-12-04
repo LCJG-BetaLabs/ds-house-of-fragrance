@@ -147,6 +147,10 @@ print(f"num of brand in LC {len(lc_brand.unique())}, num of common brands {len(c
 
 # COMMAND ----------
 
+print(f"missing brand: {set(lc_brand.unique()).difference(f_brand.unique())}")
+
+# COMMAND ----------
+
 def get_sim(lc_id, f_id, sim_array):
     sim = sim_array[_lc_ids == lc_id, _f_ids == f_id]
     return sim[0]
@@ -263,6 +267,7 @@ filtered_result = filtered_result[
         "rating",
         "number_votes",
         "main_accords",
+        "season_rating",
         "description",
         "top_notes",
         "middle_notes",
