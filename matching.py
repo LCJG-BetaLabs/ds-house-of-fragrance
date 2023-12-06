@@ -223,6 +223,10 @@ filtered_result = filtered_result.loc[filtered_result.groupby("atg_code")["sim"]
 
 # COMMAND ----------
 
+filtered_result = filtered_result[filtered_result["sim"] >= 0.9]
+
+# COMMAND ----------
+
 # for saving to uc, cannot have space in schema
 filtered_result["main_accords"] = filtered_result["main_accords"].apply(
     lambda x: {key.replace(' ', '_'):value for key,value in x.items()} 
