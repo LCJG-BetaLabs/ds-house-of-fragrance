@@ -6,15 +6,14 @@ import pyspark.sql.functions as f
 
 # COMMAND ----------
 
+# MAGIC %run ./notes_grouping
+
+# COMMAND ----------
+
 feature_dir = os.path.join(BASE_DIR, "model_features")
 os.makedirs(feature_dir, exist_ok=True)
 
-# COMMAND ----------
-
 matching_result = spark.table(LC_FRAGRANTICA_MATCHING)
-
-# COMMAND ----------
-
 matching_result = matching_result.select(
     "atg_code",
     "prod_desc_eng",
@@ -35,19 +34,14 @@ matching_result = matching_result.select(
     "gender_vote",
     "price_value",
 )
+matching_result.createOrReplaceTempView("matching")
 
 # COMMAND ----------
+
 
 def save_feature_df(df, filename):
     df.write.parquet(os.path.join(feature_dir.replace("/dbfs", ""), f"{filename}.parquet"), mode="overwrite")
 
-# COMMAND ----------
-
-def features_in_list_by_vip(feature, table=matching_result):
-    grouped_df = table.groupBy("atg_code").agg(f.collect_list(feature).alias(feature))
-    return grouped_df
-
-# COMMAND ----------
 
 def one_hot_encoding(
     feature, table=matching_result, prefix="brand_", postfix="", explode=False
@@ -95,15 +89,17 @@ def one_hot_encoding(
         )
     return encoded_df
 
-# COMMAND ----------
 
-brand = one_hot_encoding("brand_desc")
-save_feature_df(brand, "brand")
+def group_notes(note, mapping):
+    for k, v in mapping.items():
+        if note in v:
+            return k
+        
 
-# COMMAND ----------
-
-def one_hot_pd(df, feature):
+def one_hot_pd(df, feature, mapping=None):
     df = df.explode(feature)
+    if mapping:
+        df[feature] = df[feature].apply(lambda x: group_notes(x, mapping))
     one_hot = pd.get_dummies(df[feature])
     df = df.join(one_hot)
     df = df.groupby("atg_code").sum().reset_index()
@@ -112,64 +108,108 @@ def one_hot_pd(df, feature):
     df = df.rename(columns=lambda x: f'{feature}_' + x.replace("-", "").replace("(", "").replace(")", "").replace(" ", "_") if x != 'atg_code' else x)
     return df
 
-# COMMAND ----------
-
-df = matching_result.select("atg_code", "top_notes").toPandas()
-top_notes = one_hot_pd(df, "top_notes")
-save_feature_df(spark.createDataFrame(top_notes), "top_notes")
-
-# COMMAND ----------
-
-df = matching_result.select("atg_code", "middle_notes").toPandas()
-middle_notes = one_hot_pd(df, "middle_notes")
-save_feature_df(spark.createDataFrame(middle_notes), "middle_notes")
-
-# COMMAND ----------
-
-df = matching_result.select("atg_code", "base_notes").toPandas()
-base_notes = one_hot_pd(df, "base_notes")
-save_feature_df(spark.createDataFrame(base_notes), "base_notes")
-
-# COMMAND ----------
 
 def encode_column_of_dict(df, feature):
     df = matching_result.select("atg_code", feature).toPandas()
     df = df[["atg_code"]].join(pd.json_normalize(df[feature])).fillna(0)
     return df
 
-# COMMAND ----------
 
 def add_prefix(df, prefix):
     new_colname = [prefix + col for col in df.columns if col != "atg_code"]
     df.columns = ["atg_code"] + new_colname
 
+
+def get_max_dict_key(d):
+    d = {key: value if value is not None else 0 for key, value in d.items()}
+    return max(d, key=d.get)
+
+
+def group_accords(accords):
+    for k, v in main_accords_grouping.items():
+        if accords in v:
+            return k
+        
+
+def combine(data, key1, key2, _as=None):
+    combined = data[key1] + data[key2]
+    del data[key1]
+    del data[key2]
+    data[_as] = combined
+    return data
+
+
+def convert_to_percentage(df):
+    cols_to_convert = df.columns[1:]
+    row_sums = df[cols_to_convert].sum(axis=1)
+    df_percentage = df[cols_to_convert].div(row_sums, axis=0)
+    df_percentage = pd.concat([df['atg_code'], df_percentage], axis=1)
+    return df_percentage
+    
+
 # COMMAND ----------
 
-main_accords = encode_column_of_dict(matching_result, "main_accords")
-save_feature_df(spark.createDataFrame(main_accords), "main_accords")
+# brand
+brand = one_hot_encoding("brand_desc")
+save_feature_df(brand, "brand")
 
 # COMMAND ----------
 
-longevity = encode_column_of_dict(matching_result, "longevity")
-add_prefix(longevity, "longevity_")
+# top_notes
+df = matching_result.select("atg_code", "top_notes").toPandas()
+top_notes = one_hot_pd(df, "top_notes", top_notes_mapping)
+save_feature_df(spark.createDataFrame(top_notes), "top_notes")
+
+# COMMAND ----------
+
+df = matching_result.select("atg_code", "middle_notes").toPandas()
+middle_notes = one_hot_pd(df, "middle_notes", middle_notes_mapping)
+save_feature_df(spark.createDataFrame(middle_notes), "middle_notes")
+
+# COMMAND ----------
+
+df = matching_result.select("atg_code", "base_notes").toPandas()
+base_notes = one_hot_pd(df, "base_notes", base_notes_mapping)
+save_feature_df(spark.createDataFrame(base_notes), "base_notes")
+
+# COMMAND ----------
+
+df = matching_result.select("atg_code", "main_accords").toPandas()
+df["main_accords"] = df["main_accords"].apply(lambda x: get_max_dict_key(x))
+distinct_main_accords = df["main_accords"].unique()
+df["main_accords"] = df["main_accords"].apply(lambda x: group_accords(x))
+df = pd.get_dummies(df, columns=["main_accords"])
+save_feature_df(spark.createDataFrame(df), "main_accords")
+
+# COMMAND ----------
+
+longevity = matching_result.select("atg_code", "longevity").toPandas()
+longevity["longevity"] = longevity["longevity"].apply(lambda x: combine(x, "eternal", "long_lasting", _as="long_lasting"))
+longevity["longevity"] = longevity["longevity"].apply(lambda x: combine(x, "very_weak", "weak", _as="weak"))
+longevity["longevity"] = longevity["longevity"].apply(lambda x: get_max_dict_key(x))
+longevity = pd.get_dummies(longevity, columns=["longevity"])
 save_feature_df(spark.createDataFrame(longevity), "longevity")
 
 # COMMAND ----------
 
-sillage = encode_column_of_dict(matching_result, "sillage")
-add_prefix(sillage, "sillage_")
+sillage = matching_result.select("atg_code", "sillage").toPandas()
+sillage["sillage"] = sillage["sillage"].apply(lambda x: combine(x, "strong", "enormous", _as="strong"))
+sillage["sillage"] = sillage["sillage"].apply(lambda x: get_max_dict_key(x))
+sillage = pd.get_dummies(sillage, columns=["sillage"])
 save_feature_df(spark.createDataFrame(sillage), "sillage")
 
 # COMMAND ----------
 
-gender_vote = encode_column_of_dict(matching_result, "gender_vote")
-add_prefix(gender_vote, "gender_vote_")
+gender_vote = matching_result.select("atg_code", "gender_vote").toPandas()
+gender_vote["gender_vote"] = gender_vote["gender_vote"].apply(lambda x: get_max_dict_key(x))
+gender_vote = pd.get_dummies(gender_vote, columns=["gender_vote"])
 save_feature_df(spark.createDataFrame(gender_vote), "gender_vote")
 
 # COMMAND ----------
 
 price_value = encode_column_of_dict(matching_result, "price_value")
 add_prefix(price_value, "price_value_")
+price_value = convert_to_percentage(price_value)
 save_feature_df(spark.createDataFrame(price_value), "price_value")
 
 # COMMAND ----------
