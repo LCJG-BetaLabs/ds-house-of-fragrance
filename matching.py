@@ -147,6 +147,10 @@ print(f"num of brand in LC {len(lc_brand.unique())}, num of common brands {len(c
 
 # COMMAND ----------
 
+print(f"missing brand: {set(lc_brand.unique()).difference(f_brand.unique())}")
+
+# COMMAND ----------
+
 def get_sim(lc_id, f_id, sim_array):
     sim = sim_array[_lc_ids == lc_id, _f_ids == f_id]
     return sim[0]
@@ -219,6 +223,14 @@ filtered_result = filtered_result.loc[filtered_result.groupby("atg_code")["sim"]
 
 # COMMAND ----------
 
+filtered_result = filtered_result[filtered_result["sim"] >= 0.9]
+
+# COMMAND ----------
+
+filtered_result = filtered_result.drop_duplicates("atg_code")
+
+# COMMAND ----------
+
 # for saving to uc, cannot have space in schema
 filtered_result["main_accords"] = filtered_result["main_accords"].apply(
     lambda x: {key.replace(' ', '_'):value for key,value in x.items()} 
@@ -263,6 +275,7 @@ filtered_result = filtered_result[
         "rating",
         "number_votes",
         "main_accords",
+        "season_rating",
         "description",
         "top_notes",
         "middle_notes",
