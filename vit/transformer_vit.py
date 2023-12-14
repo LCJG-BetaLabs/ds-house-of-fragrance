@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 # COMMAND ----------
 
-# MAGIC %run "../base_transformer"
+# MAGIC %run "./base_transformer"
 
 # COMMAND ----------
 

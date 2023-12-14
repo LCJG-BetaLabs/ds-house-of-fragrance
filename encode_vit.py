@@ -16,13 +16,17 @@ from utils.enviroment import (
 
 # COMMAND ----------
 
-# MAGIC %run "./vit/transformer_vit"
+# MAGIC %pip install timm==0.4.12
+
+# COMMAND ----------
+
+# MAGIC %run ./vit/transformer_vit
 
 # COMMAND ----------
 
 # same vit model for lc images
 model_name = "vit_base_patch16_224_miil_in21k"
-# get the image list from lc attr table
+# get the image list from attr table
 attribute_table = spark.table(FRAGRANTICA_ATTRIBUTE)
 image_list = attribute_table.select("image_name").toPandas().values
 print(f"num images: {len(image_list)}")
@@ -58,5 +62,3 @@ transformer.transform(
     partition_size=4000,
     batch_size=512,
 )
-
-# COMMAND ----------

@@ -30,13 +30,11 @@ lc_data = get_lc_perfume_data(product_feed)
 # COMMAND ----------
 
 # get fragrantica data
-fragrantica_path = os.path.join(FRAGRANTICA_DIR, "scraping")
+fragrantica_path = os.path.join(FRAGRANTICA_DIR, "scraping", "scraping_by_brand")
 brand_folder = [f for f in os.listdir(fragrantica_path) if os.path.isdir(os.path.join(fragrantica_path, f))]
 
 all_products = []
 for brand in brand_folder:
-    if brand == "brand_json":
-        continue
     path = os.path.join(fragrantica_path, brand)
     products = []
     product_files = glob.glob(os.path.join(path, "*.json"))

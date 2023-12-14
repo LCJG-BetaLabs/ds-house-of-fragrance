@@ -1,6 +1,7 @@
 import os
 
-FRAGRANTICA_DIR = "/dbfs/mnt/stg/house_of_fragrance/fragrantica"
+BASE_DIR = "/dbfs/mnt/stg/house_of_fragrance/"
+FRAGRANTICA_DIR = os.path.join(BASE_DIR, "fragrantica")
 FRAGRANTICA_IMAGE_DIR = os.path.join(FRAGRANTICA_DIR, "images") # "/dbfs/mnt/stg/house_of_fragrance/fragrantica_images"
 os.makedirs(FRAGRANTICA_IMAGE_DIR, exist_ok=True)
 
