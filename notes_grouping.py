@@ -3,6 +3,21 @@
 
 # COMMAND ----------
 
+def combine_dict(dict1, dict2):
+    combined_dict = {}
+
+    for key in dict1:
+        combined_dict[key] = dict1[key]
+
+    for key in dict2:
+        if key in combined_dict:
+            combined_dict[key] += dict2[key]
+        else:
+            combined_dict[key] = dict2[key]
+    return combined_dict
+
+# COMMAND ----------
+
 top_notes_mapping1 = {
   "Citrus": [
     "Calabrian bergamot",
@@ -268,21 +283,6 @@ top_notes_mapping2 = {
     ],
     "Exotic": ["Ambrette (Musk Mallow)", "Sapodilla", "Cannabis", "Myrica", "Coffee"],
 }
-
-# COMMAND ----------
-
-def combine_dict(dict1, dict2):
-    combined_dict = {}
-
-    for key in dict1:
-        combined_dict[key] = dict1[key]
-
-    for key in dict2:
-        if key in combined_dict:
-            combined_dict[key] += dict2[key]
-        else:
-            combined_dict[key] = dict2[key]
-    return combined_dict
 
 # COMMAND ----------
 
@@ -734,6 +734,200 @@ middle_notes_mapping3 = {
     "Thuja",
     "Olive"
   ]
+        "Peony",
+        "Ambrette (Musk Mallow)",
+        "Lotus",
+        "Mimosa",
+        "Violet Leaf",
+        "Lily-of-the-Valley",
+        "Geranium",
+        "Magnolia",
+        "Rose",
+        "Tuberose",
+        "Ylang-Ylang",
+        "Cherry Blossom",
+        "Jasmine Sambac",
+        "Narcissus",
+        "Hibiscus",
+        "Moroccan Jasmine",
+        "Pink Peony",
+        "Rose Oil",
+        "Cyclamen",
+        "Rose Leaf",
+        "Osmanthus",
+        "Taif Rose",
+        "Damask Rose",
+        "Grasse Rose",
+        "Water Jasmine",
+        "Gardenia",
+        "Indian Tuberose",
+        "Tunisian Neroli",
+        "Indian Jasmine",
+        "Almond Blossom",
+        "Hedione",
+        "White Ginger Lily",
+        "Bitter Orange",
+        "Red Poppy",
+        "Wisteria Flower",
+        "Sweet Pea",
+        "Water Lily",
+        "Campion Flower",
+        "Rose Water",
+        "Sicilian Mandarin",
+        "Blue Lavender",
+        "Moroccan Rose",
+    ],
+    "Woody": [
+        "Agarwood (Oud)",
+        "Amyris",
+        "Cedar",
+        "Sandalwood",
+        "Guaiac Wood",
+        "White Wood",
+        "Pine needles",
+        "Virginian Cedar",
+        "Vetyver",
+        "Black Orchid",
+        "Hinoki Wood",
+    ],
+    "Spicy": [
+        "Cardamom",
+        "Coriander",
+        "Cloves",
+        "Cinnamon",
+        "Ginger",
+        "Black Pepper",
+        "Sage",
+        "Saffron",
+        "Thyme",
+        "Nutmeg",
+        "Spices",
+        "Basil",
+        "Cassia",
+        "Caraway",
+    ],
+    "Citrus": [
+        "Bergamot",
+        "Lime",
+        "Orange Leaf",
+        "Mandarin Orange",
+        "Grapefruit",
+        "Lemon",
+        "Citron",
+        "Red Apple",
+        "Green Almond",
+        "Citruses",
+    ],
+    "Fresh": [
+        "Watery Notes",
+        "Green Accord",
+        "Eucalyptus",
+        "Immortelle",
+        "Rain Notes",
+        "Mineral notes",
+        "Milk",
+        "Grass",
+        "Tea Leaf",
+        "Solar Notes",
+        "Verbena",
+    ],
+    "Fruity": [
+        "White Peach",
+        "Raspberry",
+        "Black Currant",
+        "Fig",
+        "Strawberry",
+        "Plum",
+        "Peach",
+        "Apricot",
+        "Passionfruit",
+        "Grapes",
+        "Lemongrass",
+        "Pineapple",
+        "Persimmon",
+        "Red Berries",
+        "Gooseberry",
+        "Litchi",
+        "Hazelnut",
+        "Wild Strawberry",
+        "Sour Cherry",
+        "Cacao",
+        "Truffle",
+        "Dark Chocolate",
+        "Cognac",
+    ],
+    "Gourmand": [
+        "Chocolate",
+        "Vanilla",
+        "Caramel",
+        "Praline",
+        "Coconut",
+        "Coconut Milk",
+        "Matcha Tea",
+        "Milk",
+    ],
+    "Herbal": [
+        "Rosemary",
+        "Mate",
+        "Fennel",
+        "Angelica",
+        "Nettle",
+        "Artemisia",
+        "Celery Seeds",
+        "Galbanum",
+    ],
+    "Aromatic": [
+        "Patchouli",
+        "Benzoin",
+        "Amber",
+        "Oak moss",
+        "Incense",
+        "Mint",
+        "Elemi",
+        "Cypress",
+    ],
+    "Oriental": [
+        "Agarwood (Oud)",
+        "Narcissus",
+        "Saffron",
+        "Benzoin",
+        "Incense",
+        "Bergamot",
+        "Vanilla",
+        "Myrrh",
+    ],
+    "Aquatic": [
+        "Watery Notes",
+        "Mineral notes",
+        "Rain Notes",
+        "Sea Notes",
+        "Milk",
+        "Water Lily",
+        "Solar Notes",
+    ],
+    "Chypre": [
+        "Oak moss",
+        "Bergamot",
+        "Labdanum",
+        "Papyrus",
+        "Vetiver",
+        "Elemi",
+        "Galbanum",
+    ],
+    "Fougère": ["Lavender", "Geranium", "Clary Sage"],
+    "Leather": ["Leather", "Suede", "Labdanum"],
+    "Musk": ["Musk", "Ambrette (Musk Mallow)"],
+}
+
+middle_notes_mapping2 = {
+    "Floral": ['Heliotrope', 'Black Violet', 'Orchid', 'Red Poppy', 'Blue Lavender'],
+    "Woody": ['Bourbon Vetiver', 'Sandal'],
+    "Fresh/Aquatic": ['Mineral notes', 'Vine'],
+    "Gourmand": ['Sesame'],
+    "Green/Herbal": ['heather', 'Pitosporum'],
+    "Spicy": ['Ambroxan'],
+    "Earthy/Spicy": ['Exotic floral notes'],
+    "Citrus/Fruity": ['Black Elder', 'pink tulip']
 }
 
 # COMMAND ----------
@@ -743,7 +937,7 @@ middle_notes_mapping = combine_dict(middle_notes_mapping3, middle_notes_mapping4
 
 # COMMAND ----------
 
-
+middle_notes_mapping = combine_dict(middle_notes_mapping1, middle_notes_mapping2)
 
 # COMMAND ----------
 
