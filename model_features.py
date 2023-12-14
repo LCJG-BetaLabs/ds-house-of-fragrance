@@ -149,9 +149,26 @@ def convert_to_percentage(df):
 
 # COMMAND ----------
 
+hist = matching_result.groupBy("brand_desc").count()
+display(hist)
+
+# COMMAND ----------
+
 # brand
 brand = one_hot_encoding("brand_desc")
 save_feature_df(brand, "brand")
+
+# COMMAND ----------
+
+import numpy as np
+
+
+def check_missing_mapping(feature, mapping):
+    df = matching_result.select("atg_code", feature).toPandas()
+    df = df.explode(feature)
+    df[feature + "_group"] = df[feature].apply(lambda x: group_notes(x, mapping))
+    print(df[df[feature + "_group"].isna()].fillna("")[feature].unique())
+    print(np.unique(df[feature + "_group"].fillna("")))
 
 # COMMAND ----------
 
@@ -162,9 +179,21 @@ save_feature_df(spark.createDataFrame(top_notes), "top_notes")
 
 # COMMAND ----------
 
+check_missing_mapping("top_notes", top_notes_mapping)
+
+# COMMAND ----------
+
 df = matching_result.select("atg_code", "middle_notes").toPandas()
 middle_notes = one_hot_pd(df, "middle_notes", middle_notes_mapping)
 save_feature_df(spark.createDataFrame(middle_notes), "middle_notes")
+
+# COMMAND ----------
+
+middle_notes_mapping = {}
+
+# COMMAND ----------
+
+check_missing_mapping("middle_notes", middle_notes_mapping)
 
 # COMMAND ----------
 
@@ -174,12 +203,31 @@ save_feature_df(spark.createDataFrame(base_notes), "base_notes")
 
 # COMMAND ----------
 
+check_missing_mapping("base_notes", base_notes_mapping)
+
+# COMMAND ----------
+
 df = matching_result.select("atg_code", "main_accords").toPandas()
 df["main_accords"] = df["main_accords"].apply(lambda x: get_max_dict_key(x))
+df.groupby("main_accords")["atg_code"].nunique().sort_values(ascending=False).reset_index(name='count')
+
+# COMMAND ----------
+
 distinct_main_accords = df["main_accords"].unique()
 df["main_accords"] = df["main_accords"].apply(lambda x: group_accords(x))
+
+# COMMAND ----------
+
+df.groupby("main_accords")["atg_code"].nunique().sort_values(ascending=False).reset_index(name='count')
+
+# COMMAND ----------
+
 df = pd.get_dummies(df, columns=["main_accords"])
 save_feature_df(spark.createDataFrame(df), "main_accords")
+
+# COMMAND ----------
+
+check_missing_mapping("main_accords", main_accords_grouping)
 
 # COMMAND ----------
 
@@ -187,6 +235,9 @@ longevity = matching_result.select("atg_code", "longevity").toPandas()
 longevity["longevity"] = longevity["longevity"].apply(lambda x: combine(x, "eternal", "long_lasting", _as="long_lasting"))
 longevity["longevity"] = longevity["longevity"].apply(lambda x: combine(x, "very_weak", "weak", _as="weak"))
 longevity["longevity"] = longevity["longevity"].apply(lambda x: get_max_dict_key(x))
+
+print(longevity.groupby("longevity")["atg_code"].nunique().sort_values(ascending=False).reset_index(name='count'))
+
 longevity = pd.get_dummies(longevity, columns=["longevity"])
 save_feature_df(spark.createDataFrame(longevity), "longevity")
 
@@ -195,6 +246,9 @@ save_feature_df(spark.createDataFrame(longevity), "longevity")
 sillage = matching_result.select("atg_code", "sillage").toPandas()
 sillage["sillage"] = sillage["sillage"].apply(lambda x: combine(x, "strong", "enormous", _as="strong"))
 sillage["sillage"] = sillage["sillage"].apply(lambda x: get_max_dict_key(x))
+
+print(sillage.groupby("sillage")["atg_code"].nunique().sort_values(ascending=False).reset_index(name='count'))
+
 sillage = pd.get_dummies(sillage, columns=["sillage"])
 save_feature_df(spark.createDataFrame(sillage), "sillage")
 
