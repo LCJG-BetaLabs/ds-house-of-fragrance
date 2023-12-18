@@ -3,6 +3,9 @@ import os
 import itertools
 import pandas as pd
 from utils.enviroment import LC_FRAGRANTICA_MATCHING, BASE_DIR
+from utils.functions import (
+    get_season, get_max_dict_key, group_accords, group_notes
+)
 
 # COMMAND ----------
 
@@ -48,42 +51,6 @@ matching_result = matching_result.select(
 
 # COMMAND ----------
 
-def get_season(d):
-    d.pop("day", None)
-    d.pop("night", None)
-    season = get_max_dict_key(d)
-    if season in ['fall', 'winter']:
-        return "AW"
-    else:
-        return "SS"
-
-def get_max_dict_key(d):
-    d = {key: value if value is not None else 0 for key, value in d.items()}
-    return max(d, key=d.get)
-
-
-def group_accords(accords, grouping):
-    for k, v in grouping.items():
-        if accords in v:
-            return k
-
-
-def group_notes(note, mapping):
-    for k, v in mapping.items():
-        if note in v:
-            return k
-        
-
-def clean_mapping(mapping, apply_to_all):
-    for r in mapping:
-        for a in apply_to_all:
-            if a in mapping.keys():
-                mapping[r] |= mapping[a]
-    mapping = {k: v for k, v in mapping.items() if k not in apply_to_all}
-    return mapping  
-
-# COMMAND ----------
-
 main_accords_final_group = {
     "floral": ["floral"],
     "spicy": ["spicy"],
@@ -103,14 +70,18 @@ middle_notes_final_group = {
 matching_result_pd = matching_result.toPandas()
 matching_result_pd = matching_result_pd[["atg_code", "for_gender", "season_rating", "main_accords", "middle_notes"]]
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(lambda x: get_max_dict_key(x))
-matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(lambda x: group_accords(x, main_accords_grouping))
-matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(lambda x: group_accords(x, main_accords_final_group))
+matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
+    lambda x: group_accords(x, main_accords_grouping))
+matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
+    lambda x: group_accords(x, main_accords_final_group))
 matching_result_pd["season"] = matching_result_pd["season_rating"].apply(lambda d: get_season(d))
 
 # middle notes
 matching_result_pd = matching_result_pd.explode("middle_notes")
-matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(lambda x: group_notes(x, middle_notes_mapping))
-matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(lambda x: group_notes(x, middle_notes_final_group))
+matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(
+    lambda x: group_notes(x, middle_notes_mapping))
+matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(
+    lambda x: group_notes(x, middle_notes_final_group))
 
 season_mapping = matching_result_pd.groupby("season")["atg_code"].apply(set).to_dict()
 main_accords_mapping = matching_result_pd.groupby("main_accords")["atg_code"].apply(set).to_dict()
@@ -147,9 +118,3 @@ for ma in main_accords_mapping.keys():
     )
 
 # COMMAND ----------
-
-# result.groupby('cluster').count()[["atg_code"]]
-
-# COMMAND ----------
-
-
