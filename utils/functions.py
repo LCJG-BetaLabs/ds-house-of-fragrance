@@ -1,5 +1,6 @@
 import os
 from utils.enviroment import BASE_DIR
+from databricks.sdk.runtime import spark
 
 
 def get_season(d):
@@ -10,6 +11,15 @@ def get_season(d):
         return "AW"
     else:
         return "SS"
+
+
+def get_day_night(d):
+    day = d["day"]
+    night = d["night"]
+    if day > night:
+        return "day"
+    else:
+        return "night"
 
 
 def get_max_dict_key(d):
