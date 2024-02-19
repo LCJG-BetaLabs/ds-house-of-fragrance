@@ -57,6 +57,7 @@ main_accords_final_group = {
     "sweet": ["vanilla", "sweet"],
     "earthy": ["earthy", "musky", "powdery", "woody"],
     "citrus": ["citrus", "fresh"],
+    "mineral": ["mineral"]
 }
 
 middle_notes_final_group = {
@@ -89,32 +90,42 @@ middle_notes_mapping_ = matching_result_pd.groupby("middle_notes")["atg_code"].a
 
 # COMMAND ----------
 
-combinations = list(itertools.product(season_mapping.keys(), middle_notes_mapping_.keys()))
+# consider "category"
+category = spark.read.parquet("/mnt/stg/house_of_fragrance/result_with_category.parquet").toPandas()
+category_mapping = category.groupby("category")["atg_code"].apply(set).to_dict()
+
+# COMMAND ----------
+
+combinations = list(itertools.product(season_mapping.keys(), middle_notes_mapping_.keys(), main_accords_mapping.keys()))
 print(combinations)
 
 # COMMAND ----------
 
-for ma in main_accords_mapping.keys():
+for c in category_mapping.keys():
     all_dfs = []
-    for i, (s, mn) in enumerate(combinations):
-        atgs = main_accords_mapping[ma] & season_mapping[s] & middle_notes_mapping_[mn]
+    for i, (s, mn, ma) in enumerate(combinations):
+        atgs = main_accords_mapping[ma] & season_mapping[s] & middle_notes_mapping_[mn] & category_mapping[c]
         df = pd.DataFrame(atgs, columns=["atg_code"])
         df["main_accord"] = ma
         df["season"] = s
         df["middle_notes"] = mn
-        df["cluster"] = f"{ma}_{s}_{mn}"
+        df["cluster"] = f"{ma}_{s}_{mn}_{c}"
         all_dfs.append(df)
 
     result = pd.concat(all_dfs)[["atg_code", "cluster"]]
-    result_path = os.path.join(BASE_DIR.replace("/dbfs", ""), f"{ma}.parquet")
-    spark.createDataFrame(result).write.parquet(result_path, mode="overwrite")
+    result_path = os.path.join(BASE_DIR.replace("/dbfs", ""), "result_v3", f"{ma}_{s}_{mn}_{c}.parquet")
+    print(c, len(result))
 
-    dbutils.notebook.run(
-        "./profiling_features",
-        0,
-        {
-            "result_path": result_path
-        }
-    )
+    if len(result) > 0:
+        spark.createDataFrame(result).write.parquet(result_path, mode="overwrite")
+        dbutils.notebook.run(
+            "./profiling_features",
+            0,
+            {
+                "result_path": result_path
+            }
+        )
 
 # COMMAND ----------
+
+
