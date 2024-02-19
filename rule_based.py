@@ -1,7 +1,15 @@
 # Databricks notebook source
+# MAGIC %pip install unidecode
+
+# COMMAND ----------
+
 import os
 import itertools
 import pandas as pd
+from functools import reduce
+from pyspark.sql import DataFrame
+import pyspark.sql.functions as f
+from unidecode import unidecode
 from utils.enviroment import LC_FRAGRANTICA_MATCHING, BASE_DIR
 from utils.functions import (
     get_season, get_max_dict_key, group_accords, group_notes
@@ -90,41 +98,99 @@ middle_notes_mapping_ = matching_result_pd.groupby("middle_notes")["atg_code"].a
 
 # COMMAND ----------
 
-# consider "category"
-category = spark.read.parquet("/mnt/stg/house_of_fragrance/result_with_category.parquet").toPandas()
-category_mapping = category.groupby("category")["atg_code"].apply(set).to_dict()
-
-# COMMAND ----------
-
-combinations = list(itertools.product(season_mapping.keys(), middle_notes_mapping_.keys(), main_accords_mapping.keys()))
+combinations = list(itertools.product(season_mapping.keys(), middle_notes_mapping_.keys()))
 print(combinations)
 
 # COMMAND ----------
 
-for c in category_mapping.keys():
+all_result = []
+for ma in main_accords_mapping.keys():
     all_dfs = []
-    for i, (s, mn, ma) in enumerate(combinations):
-        atgs = main_accords_mapping[ma] & season_mapping[s] & middle_notes_mapping_[mn] & category_mapping[c]
+    for i, (s, mn) in enumerate(combinations):
+        atgs = main_accords_mapping[ma] & season_mapping[s] & middle_notes_mapping_[mn]
         df = pd.DataFrame(atgs, columns=["atg_code"])
         df["main_accord"] = ma
         df["season"] = s
         df["middle_notes"] = mn
-        df["cluster"] = f"{ma}_{s}_{mn}_{c}"
+        df["cluster"] = f"{ma}_{s}_{mn}"
         all_dfs.append(df)
 
     result = pd.concat(all_dfs)[["atg_code", "cluster"]]
-    result_path = os.path.join(BASE_DIR.replace("/dbfs", ""), "result_v3", f"{ma}_{s}_{mn}_{c}.parquet")
-    print(c, len(result))
+    result_path = os.path.join(BASE_DIR.replace("/dbfs", ""), "result_v3", f"{ma}.parquet")
+    print(ma, len(result))
 
     if len(result) > 0:
-        spark.createDataFrame(result).write.parquet(result_path, mode="overwrite")
-        dbutils.notebook.run(
-            "./profiling_features",
-            0,
-            {
-                "result_path": result_path
-            }
-        )
+        result_df = spark.createDataFrame(result)
+        result_df.write.parquet(result_path, mode="overwrite")
+        all_result.append(result_df)
+
+final_result = reduce(DataFrame.unionAll, all_result)
+
+# COMMAND ----------
+
+result_path
+
+# COMMAND ----------
+
+display(final_result)
+
+# COMMAND ----------
+
+# consider "category"
+path = "/dbfs/mnt/stg/house_of_fragrance/input/cbo_fragrance_category_persona.csv"
+mapping = pd.read_csv(path).fillna("")
+mapping["brand"] = mapping["brand"].apply(lambda b: unidecode(b).lower())
+mapping = mapping[["brand", "category"]].rename(columns={"brand": "brand_desc"})
+mapping = spark.createDataFrame(mapping)
+
+results = final_result.join(matching_result.select("atg_code", "brand_desc"), on="atg_code", how="left")
+results = results.withColumn("brand_desc", udf(lambda b: unidecode(b).lower())("brand_desc"))
+results = results.join(mapping, on="brand_desc", how="left")
+
+# COMMAND ----------
+
+# check null
+null_count = results.select(f.sum(f.col("category").isNull().cast("int"))).collect()[0][0]
+print(f"# of products without category: {null_count}/{results.count()} ({(null_count/results.count())*100:.2f}%)")
+
+# COMMAND ----------
+
+# check null brand
+brand = results.select("brand_desc", "category").dropDuplicates()
+null_count = brand.select(f.sum(f.col("category").isNull().cast("int"))).collect()[0][0]
+num_brand = brand.count()
+p = null_count/num_brand
+print(f"# of brand without category: {null_count}/{num_brand} ({p*100:.2f}%)")
+
+# COMMAND ----------
+
+# all brands that dun have category
+display(brand)
+
+# COMMAND ----------
+
+# add another column for {main_accord}_{category}
+# keep only those that has brand
+nonnull_results = results.filter(f.col("category").isNotNull())
+nonnull_results = nonnull_results.withColumn("cluster", f.concat(f.col("cluster"), f.lit("_"), f.col("category")))
+nonnull_results = nonnull_results.withColumn("category", f.trim(f.col("category")))
+
+# COMMAND ----------
+
+# save
+save_path = "/mnt/stg/house_of_fragrance/result_with_category.parquet"
+nonnull_results.write.parquet(save_path, mode="overwrite")
+display(nonnull_results)
+
+# COMMAND ----------
+
+dbutils.notebook.run(
+    "./profiling_features",
+    0,
+    {
+        "result_path": save_path
+    }
+)
 
 # COMMAND ----------
 
