@@ -1123,15 +1123,15 @@ main_accords_grouping1 = {
   "powdery": ["powdery"],
   "sweet": ["sweet", "fruity", "almond", "cherry"],
   "musky": ["musky"],
-  "fresh": ["fresh", "marine"],
-  "earthy": ["earthy", "amber", "tobacco", "aquatic", "soapy", "green", "alcohol", "savory"]
+  "mineral": ["fresh", "marine"],
+  "earthy": ["earthy", "amber", "tobacco", "soapy", "green", "alcohol"]
 }
 
 main_accords_grouping2 = {
   "citrus": ["aldehydic"],
-  "earthy": ["camphor", "conifer", "herbal", "mineral", "mossy"],
+  "earthy": ["camphor", "conifer", "herbal", "mossy"],
   "floral": ["anis"],
-  "fresh": ["ozonic", "salty", "sour"],
+  "mineral": ["ozonic", "salty", "sour", "mineral", "aquatic", "savory"],
   "musky": ["animalic", "metallic"],
   "powdery": ["lactonic"],
   "spicy": ["aromatic", "cinnamon", "soft_spicy"],
