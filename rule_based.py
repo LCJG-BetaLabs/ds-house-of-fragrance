@@ -77,13 +77,19 @@ middle_notes_final_group = {
 # COMMAND ----------
 
 matching_result_pd = matching_result.toPandas()
-matching_result_pd = matching_result_pd[["atg_code", "for_gender", "season_rating", "main_accords", "middle_notes", "sillage", "longevity"]]
+matching_result_pd = matching_result_pd[
+    ["atg_code", "for_gender", "season_rating", "main_accords", "middle_notes", "sillage", "longevity"]
+]
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(lambda x: get_max_dict_key(x))
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_grouping))
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_final_group))
 matching_result_pd["season"] = matching_result_pd["season_rating"].apply(lambda d: get_season(d))
+matching_result_pd["day_night"] = matching_result_pd["season_rating"].apply(lambda d: get_day_night(d))
+matching_result_pd["sillage"] = matching_result_pd["sillage"].apply(lambda x: get_max_dict_key(x))
+matching_result_pd["longevity"] = matching_result_pd["longevity"].apply(lambda x: get_max_dict_key(x))
+matching_result_pd_backup = matching_result_pd.copy()
 
 # middle notes
 matching_result_pd = matching_result_pd.explode("middle_notes")
@@ -98,11 +104,10 @@ middle_notes_mapping_ = matching_result_pd.groupby("middle_notes")["atg_code"].a
 
 # COMMAND ----------
 
-matching_result_pd
 for_gender_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
-day_night_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
-sillage_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
-longevity_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
+day_night_mapping = matching_result_pd.groupby("day_night")["atg_code"].apply(set).to_dict()
+sillage_mapping = matching_result_pd.groupby("sillage")["atg_code"].apply(set).to_dict()
+longevity_mapping = matching_result_pd.groupby("longevity")["atg_code"].apply(set).to_dict()
 
 # COMMAND ----------
 
@@ -206,13 +211,13 @@ dbutils.notebook.run(
 import numpy as np
 
 cluster_path = "/mnt/stg/house_of_fragrance/result_with_category.parquet"
-cluster = spark.read.parquet(cluster_path)
-cluster_pd = cluster.toPandas()
+cluster_result = spark.read.parquet(cluster_path)
+cluster_pd = cluster_result.toPandas()
 cluster_pd["cluster"] = cluster_pd["cluster"].apply(
     lambda x: "_".join([x.split("_")[0], x.split("_")[1], x.split("_")[3]])
 )
-cluster = spark.createDataFrame(cluster_pd)
-cluster.createOrReplaceTempView("df")
+cluster_result = spark.createDataFrame(cluster_pd)
+cluster_result.createOrReplaceTempView("df")
 
 # COMMAND ----------
 
@@ -247,7 +252,22 @@ result_dict
 # COMMAND ----------
 
 # for each cluster, get most representative item
+representative_items = {}
+cluster_mapping = cluster_result.toPandas().groupby("cluster")["atg_code"].apply(set).to_dict()
 
+for cluster in cluster_mapping.keys():
+    d = result_dict[cluster]
+    representative_items[cluster] = (for_gender_mapping[d["for_gender"]] & main_accords_mapping[d["main_accords"]]
+                                            & day_night_mapping[d["day_night"]] & season_mapping[d["season"]]
+                                            & sillage_mapping[d["sillage"]] & longevity_mapping[d["longevity"]])
+    if len(representative_items[cluster]) == 0:
+        print(f"{cluster} has no representative items")
+
+# COMMAND ----------
+
+# create output
+output_df = pd.merge(cluster_result, matching_result_pd_backup, on="atg_code", how="left")
+output_df["rank"] = output_df["atg_code"].apply(lambda a: 1 if a in representative_items.values() else None)
 
 # COMMAND ----------
 
@@ -256,4 +276,4 @@ result_dict
 
 # COMMAND ----------
 
-# save output parquat and excel file
+# save output as csv
