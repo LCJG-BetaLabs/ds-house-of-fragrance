@@ -12,7 +12,7 @@ import pyspark.sql.functions as f
 from unidecode import unidecode
 from utils.enviroment import LC_FRAGRANTICA_MATCHING, BASE_DIR
 from utils.functions import (
-    get_season, get_max_dict_key, group_accords, group_notes
+    get_season, get_max_dict_key, group_accords, group_notes, get_day_night,
 )
 
 # COMMAND ----------
@@ -77,7 +77,7 @@ middle_notes_final_group = {
 # COMMAND ----------
 
 matching_result_pd = matching_result.toPandas()
-matching_result_pd = matching_result_pd[["atg_code", "for_gender", "season_rating", "main_accords", "middle_notes"]]
+matching_result_pd = matching_result_pd[["atg_code", "for_gender", "season_rating", "main_accords", "middle_notes", "sillage", "longevity"]]
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(lambda x: get_max_dict_key(x))
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_grouping))
@@ -95,6 +95,14 @@ matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(
 season_mapping = matching_result_pd.groupby("season")["atg_code"].apply(set).to_dict()
 main_accords_mapping = matching_result_pd.groupby("main_accords")["atg_code"].apply(set).to_dict()
 middle_notes_mapping_ = matching_result_pd.groupby("middle_notes")["atg_code"].apply(set).to_dict()
+
+# COMMAND ----------
+
+matching_result_pd
+for_gender_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
+day_night_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
+sillage_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
+longevity_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
 
 # COMMAND ----------
 
@@ -194,4 +202,58 @@ dbutils.notebook.run(
 
 # COMMAND ----------
 
+# rank
+import numpy as np
 
+cluster_path = "/mnt/stg/house_of_fragrance/result_with_category.parquet"
+cluster = spark.read.parquet(cluster_path)
+cluster_pd = cluster.toPandas()
+cluster_pd["cluster"] = cluster_pd["cluster"].apply(
+    lambda x: "_".join([x.split("_")[0], x.split("_")[1], x.split("_")[3]])
+)
+cluster = spark.createDataFrame(cluster_pd)
+cluster.createOrReplaceTempView("df")
+
+# COMMAND ----------
+
+# get representative items
+profiling = pd.read_csv("/dbfs/mnt/stg/house_of_fragrance/profiling_result.csv")
+profiling = profiling.set_index("dummy")
+profiling = profiling.drop(index=[np.nan])
+
+# COMMAND ----------
+
+features = ["for_gender", "group", "main_accords", "day_night", "season", "sillage", "longevity"]
+result_dict = {}
+for i, f in enumerate(features):
+    if i < len(features) - 1:
+        subdf = profiling[features[i]:features[i+1]]
+    else:
+        subdf = profiling[features[i]:]
+    subdf = subdf.drop(index=[fe for fe in features if fe in subdf.index])
+
+    for column in subdf.columns:
+        
+        max_index = subdf[[column]].astype(int).idxmax()
+        if column not in result_dict:
+            result_dict[column] = {f: max_index.iloc[0]}
+        else:
+            result_dict[column][f] = max_index.iloc[0]
+
+# COMMAND ----------
+
+result_dict
+
+# COMMAND ----------
+
+# for each cluster, get most representative item
+
+
+# COMMAND ----------
+
+# filter for business requirement
+
+
+# COMMAND ----------
+
+# save output parquat and excel file
