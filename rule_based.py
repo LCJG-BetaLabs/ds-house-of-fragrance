@@ -76,17 +76,21 @@ middle_notes_final_group = {
 
 # COMMAND ----------
 
+display(matching_result_pd[["season_rating"]])
+
+# COMMAND ----------
+
 matching_result_pd = matching_result.toPandas()
 matching_result_pd = matching_result_pd[
-    ["atg_code", "for_gender", "season_rating", "main_accords", "middle_notes", "sillage", "longevity"]
+    ["atg_code", "for_gender", "season_rating", "main_accords", "top_notes", "middle_notes", "base_notes","sillage", "longevity"]
 ]
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(lambda x: get_max_dict_key(x))
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_grouping))
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_final_group))
-matching_result_pd["season"] = matching_result_pd["season_rating"].apply(lambda d: get_season(d))
 matching_result_pd["day_night"] = matching_result_pd["season_rating"].apply(lambda d: get_day_night(d))
+matching_result_pd["season"] = matching_result_pd["season_rating"].apply(lambda d: get_season(d))
 matching_result_pd["sillage"] = matching_result_pd["sillage"].apply(lambda x: get_max_dict_key(x))
 matching_result_pd["longevity"] = matching_result_pd["longevity"].apply(lambda x: get_max_dict_key(x))
 matching_result_pd_backup = matching_result_pd.copy()
@@ -257,7 +261,7 @@ cluster_mapping = cluster_result.toPandas().groupby("cluster")["atg_code"].apply
 
 for cluster in cluster_mapping.keys():
     d = result_dict[cluster]
-    representative_items[cluster] = (for_gender_mapping[d["for_gender"]] & main_accords_mapping[d["main_accords"]]
+    representative_items[cluster] = (cluster_mapping[cluster] & for_gender_mapping[d["for_gender"]] 
                                             & day_night_mapping[d["day_night"]] & season_mapping[d["season"]]
                                             & sillage_mapping[d["sillage"]] & longevity_mapping[d["longevity"]])
     if len(representative_items[cluster]) == 0:
@@ -266,14 +270,22 @@ for cluster in cluster_mapping.keys():
 # COMMAND ----------
 
 # create output
-output_df = pd.merge(cluster_result, matching_result_pd_backup, on="atg_code", how="left")
-output_df["rank"] = output_df["atg_code"].apply(lambda a: 1 if a in representative_items.values() else None)
+output_df = pd.merge(cluster_result.toPandas(), matching_result_pd_backup, on="atg_code", how="left")
+output_df["rank"] = output_df["atg_code"].apply(lambda a: 1 if a in list(itertools.chain.from_iterable([list(s) for s in list(representative_items.values())])) else None)
 
 # COMMAND ----------
 
-# filter for business requirement
+output_df.head()
 
+# COMMAND ----------
+
+output_df = output_df[["atg_code", "brand_desc", "cluster", "category", "main_accords", "sillage", "longevity", "day_night", "top_notes", "middle_notes", "base_notes", "rank"]]
 
 # COMMAND ----------
 
 # save output as csv
+output_df.to_csv(os.path.join(BASE_DIR, "output.csv"), index=False)
+
+# COMMAND ----------
+
+
