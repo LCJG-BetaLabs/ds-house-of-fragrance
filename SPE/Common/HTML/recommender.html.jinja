@@ -1,0 +1,307 @@
+<html>
+	<head>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha512-MoRNloxbStBcD8z3M/2BmnT+rg4IsMxPkXaGh2zD6LGNNFE80W3onsAhRcMAMrSoyWL9xD7Ert0men7vR8LUZg==" crossorigin="anonymous" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.10/themes/default/style.min.css" integrity="sha512-P8BwDSUInKMA7I116Z1RFg/Dfk85uFdliEUYO7vQlwtxLVMNvZimfMAQsaf++9EhlAGOVX6yhDQAIY3/70jDUg==" crossorigin="anonymous" />
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.10/jstree.min.js" integrity="sha512-fgHQj3Fsk5TtG3XglZ/JkE06lx/gJdBZ+Lll785gf5RW3NWcGsyTBwauFtwrlZvpsuv6XSjzB97fBNagkT6uDg==" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha512-M5KW3ztuIICmVIhjSqXe01oV2bpe248gOxqmlcYrEzAvws7Pw3z6BK0iGbrwvdrUQUhi3eXgtxp5I8PDo9YfjQ==" crossorigin="anonymous"></script>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.2/css/bootstrap-grid.min.css" integrity="sha512-pkOzvsY+X67Lfs6Yr/dbx+utt/C90MITnkwx8X5fyKkBorWHJLlR3TmgNJs83URAR0GdejZZnjZdgYjzL/mtcQ==" crossorigin="anonymous" />
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-treeview/1.2.0/bootstrap-treeview.min.js" integrity="sha512-Hyk+1XSRfagqzuSHE8M856g295mX1i5rfSV5yRugcYFlvQiE3BKgg5oFRfX45s7I8qzMYFa8gbFy9xMFbX7Lqw==" crossorigin="anonymous"></script>
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-treeview/1.2.0/bootstrap-treeview.min.css" integrity="sha512-A81ejcgve91dAWmCGseS60zjrAdohm7PTcAjjiDWtw3Tcj91PNMa1gJ/ImrhG+DbT5V+JQ5r26KT5+kgdVTb5w==" crossorigin="anonymous" />
+
+		<title></title>
+		<script>
+			var map = new Map();
+			var buMap = new Map();
+
+			function addOptionsToSelect(keys, select_id, func) {
+				$("#" + select_id + " option").remove();
+				for (const key of keys) {
+        			$("#" + select_id).append('<option value="'+ key +'">'+ key +'</option>');
+        			if (func) {
+        				func(key);
+        			}
+    			};
+			}
+
+			function loadManifest() {
+			    return $.ajax({url: "./manifest.json?_" + new Date().getTime(), success: function(result){
+			    	$("#bu_desc option").remove();
+			    	console.log(result);
+			    	const products = result["products"];
+			    	const regions = result["regions"];
+			    	const title = result["title"];
+			    	const description = result["description"];
+			    	$("#title").text(title);
+			    	$("title").text(title);
+			    	$("#description").text(description);
+			    	addOptionsToSelect(regions, "region", function(key) {
+			    	    
+			    	});
+			    	addOptionsToSelect(Array.from(Object.keys(products)).sort(), "bu_desc", function(key) {
+			    	    buMap[key] = products[key];
+			    	});
+			    }});
+			}
+
+
+			function changeClass(buDesc, classDesc, region) {
+				$('#resultDiv').hide();
+    			$.ajax({url: "./" + buDesc + "/" + region + "/" + "lsh_output_" + classDesc+ "_" + region +  ".json" + "?_" + new Date().getTime(), success: function(result){
+    				map.clear()
+
+    				console.log(result);
+    				var tree = [];
+    				const showOutOfStock = $("#show_out_of_stock").is(":checked");
+    				for (var i = 0; i < result.length; i++) {
+    					var parent = result[i]
+    					if (! showOutOfStock && parent.source_SOH <= 0) {
+    						continue
+    					}
+
+
+    					//console.log(parent)
+    					if (map.has(parent.source)) {
+    						map.set(parent.source, map.get(parent.source).concat([parent]))
+    					} else {
+    						map.set(parent.source, [parent])
+    					}
+    				}
+    				$("#atg_code option").remove();
+    				
+
+    				addOptionsToSelect(Array.from(map.keys()).sort(), "atg_code", function(key) {
+    					var parent = map.get(key);
+    					tree.push({text: key, records: parent })
+    				});
+
+    				$("#similar_price").change(function() {
+    					const key = $("#similar_price").is(":checked");
+    					$( "#atg_code").trigger("change");
+    				});
+
+    				$("#show_out_of_stock").change(function() {
+    					const buDesc = $("#bu_desc").val();
+						const classDesc = $("#class_desc").val()
+						const region = $("#region").val()
+						changeClass(buDesc, classDesc, region)
+    				});
+
+
+    				$("#num_rec").change(function() {
+    					$( "#atg_code").trigger("change");
+    				});
+  			
+    				$( "#atg_code" ).change(function () {
+    				  const key = $("#atg_code").val();
+    				  const data = {records: map.get(key)};
+    				  console.log(data);
+    				  const sourceRecord = data.records[0];
+					  $('#placeholder').hide();
+					  $('#resultDiv').show();
+					  $('#source').html(key);
+					  $('#sourceBrand').html(sourceRecord["source_brand_desc"]);
+					  $('#sourceClass').html((sourceRecord["source_real_atg_class_desc"] || "-") + "<br/>\n" + (sourceRecord["source_real_atg_subclass_desc"] || "-"));
+
+					  $('#soh').html(sourceRecord["source_SOH"]);
+					  $('#price').html(sourceRecord["source_price"]);
+					  $('#sourceDesc').html(sourceRecord["source_long_desc"]);
+					  $('#sourceImg').attr("src", sourceRecord["source_img"]);
+					  $("#recommendation tbody tr").remove();
+					  const filterPrice = $("#similar_price").is(":checked");
+					  const m = parseInt($("#num_rec").val());
+					  var k = 0;
+					  
+
+					  const displayRecord = (record) => {
+						var img = "<img src=\"" + record["sim_img"] +  "\" height='200'/>";
+						var tr = "<tr>";
+						tr += "<td>" + img + "</td>";
+						tr += "<td>" + record["sim_price"] +"</td>";
+						tr += "<td>" + record["sim"] +"</td>";
+						tr += "<td>" + (record["sim_real_atg_class_desc"] || "-") + "<br/>\n" + (record["sim_real_atg_subclass_desc"] || "-") +"</td>";
+						tr += "<td>" +  record["sim_brand_desc"] + "<br/>\n" + record["sim_long_desc"] + "</td>";
+						tr += "<td>" + (k) + "</td>";
+						tr += "<td>" + record["sim_SOH"] + "</td>";
+						tr += "<td>" + parseFloat(record["score_total"]).toFixed(2) + "<br/>" + (record["level"] || "-") +  "</td>";
+                        {% for simtype in simtypes %}
+                          tr += "<td>" + ("{{ simtype }}" in record ? (record["{{ simtype }}"]).toFixed(2) : "-") + "</td>";
+                        {% endfor %}
+						tr += "</tr>";
+						$("#recommendation").find('tbody').append(tr);
+					  }
+
+
+					  const priceGapRecords = [];
+
+					  for (var record of data.records){
+					  	
+					  	if (filterPrice) {
+					  		if (! record.similar_price && record.level != "fallback") {
+					  			priceGapRecords.push(record)
+					  			continue;
+					  		}
+
+					  	}
+					  	if (record["sim"] == key) {
+					  		continue
+					  	}
+
+					  	k++;
+					  	displayRecord(record);
+
+
+					  	console.log(record)
+					  	
+					  	if (k >= m) {
+					  		break;
+					  	}
+
+					  }
+
+					  if (k < m) {
+						  for (var record of priceGapRecords){
+						  	continue
+						  	if (record["sim"] == key) {
+						  		continue
+						  	}
+						  	k++;
+						  	displayRecord(record)
+						  	console.log("same brand", record)
+						  	if (k >= m) {
+						  		break;
+						  	}
+						  }
+					  }
+
+
+
+
+
+
+					  if (k == 0) {
+					  	var tr = "<tr><td colspan=7>No Recommendation</td></tr>";
+					  	$("#recommendation").find('tbody').append(tr);
+					  }
+					}
+
+
+
+
+
+					).change();
+ 				 }});
+			}
+
+			$( document ).ready(function() {
+				loadManifest().then(function () {
+				  $( "#bu_desc" ).change(function () {
+				  	const key = $("#bu_desc").val();
+				  	const classes = buMap[key];
+				  	addOptionsToSelect(classes, "class_desc");
+				  	console.log(classes)
+					const classDesc = $("#class_desc").val()
+					const region = $("#region").val()
+					changeClass(key, classDesc, region)
+				  });
+
+				  
+				}).then(function() { $("#bu_desc").change(); });
+
+				
+				
+				$( "#class_desc" ).change(function () {
+					const buDesc = $("#bu_desc").val();
+					const classDesc = $("#class_desc").val()
+					const region = $("#region").val()
+					changeClass(buDesc, classDesc, region)
+				});
+
+				$( "#region" ).change(function () {
+					const buDesc = $("#bu_desc").val();
+					const classDesc = $("#class_desc").val()
+					const region = $("#region").val()
+					changeClass(buDesc, classDesc, region)
+				});
+			});
+		</script>
+	</head>
+	<body>
+		<div class="alert alert-dark" role="alert">
+        <h1 id="title"></h1>
+        <span id="description"></span><br/><br/>
+  			Region: 
+  			<select id="region">
+	  		  <option value="HK">HK</option>
+	          <option value="ROW">ROW</option>
+	          <option value="CN">CN</option>
+  			</select>
+  			BU: 
+  			<select id="bu_desc">
+  			</select>
+        	Class: 
+  			<select id="class_desc">
+  			</select>
+
+  			ATG Code: <select id="atg_code"></select>
+       		&nbsp;
+ 			Similar Price <input type="checkbox" id="similar_price" />
+ 			&nbsp;
+ 			Show Out of stock item <input type="checkbox" id="show_out_of_stock" checked/>
+ 			&nbsp;
+ 			Number of Recommendations: &nbsp;
+ 			<select id="num_rec" disabled>
+  				<option value="5">5</option>
+		        <option value="10" selected>10</option>
+		        <option value="20">20</option>
+		        <option value="50">50</option>
+  			</select>
+		</div>
+		<div class="container-fluid text-left">
+			<div class="row">
+				<div class="col-s "></div>
+				<div class="col-s">
+					<div id="placeholder">
+						Please select an item.
+					</div>
+					<div id="resultDiv">
+						<h1>
+						 <span id="source">Example heading</span>
+						 <span class="badge badge-secondary" id="soh-parent">SOH: <span id="soh"></span></span>
+
+						 &nbsp;<span class="badge badge-primary">Price: <span id="price"></span></span></h1><br/>
+						<img src="" id="sourceImg" width="300px" /><br/>
+						<h3>Brand</h3>
+						<div id="sourceBrand" style="width:300px"></div>
+						<h3>ATG Class / Subclass</h3>
+						<div id="sourceClass" style="width:300px"></div>
+						<h3>Description</h3>
+						<div id="sourceDesc" style="width:300px"></div>
+					</div>
+				</div>
+				<div class="col-lg">
+					<table id="recommendation" class="table table-striped">
+						<thead>
+							<tr>
+								<th>Preview</th>
+								<th>Price</th>
+								<th>ATG</th>
+								<th>ATG Class / Subclass</th>
+								<th>Description</th>
+								<!--th>Common Keyword</th-->
+								<th>Rank</th>
+								<th>SOH</th>
+								<th>Score</th>
+                                {% for simtype in simtypes %}
+                                    <th>{{ simtype }}</th>
+                                {% endfor %}
+							</tr>
+						</thead>
+						<tbody>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
