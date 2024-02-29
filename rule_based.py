@@ -76,10 +76,6 @@ middle_notes_final_group = {
 
 # COMMAND ----------
 
-display(matching_result_pd[["season_rating"]])
-
-# COMMAND ----------
-
 matching_result_pd = matching_result.toPandas()
 matching_result_pd = matching_result_pd[
     ["atg_code", "for_gender", "season_rating", "main_accords", "top_notes", "middle_notes", "base_notes","sillage", "longevity"]
@@ -87,6 +83,9 @@ matching_result_pd = matching_result_pd[
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(lambda x: get_max_dict_key(x))
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_grouping))
+
+main_accords_mapping_profiling = matching_result_pd.groupby("main_accords")["atg_code"].apply(set).to_dict()
+
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_final_group))
 matching_result_pd["day_night"] = matching_result_pd["season_rating"].apply(lambda d: get_day_night(d))
@@ -99,6 +98,8 @@ matching_result_pd_backup = matching_result_pd.copy()
 matching_result_pd = matching_result_pd.explode("middle_notes")
 matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(
     lambda x: group_notes(x, middle_notes_mapping))
+middle_notes_mapping_profiling = matching_result_pd.groupby("middle_notes")["atg_code"].apply(set).to_dict()
+
 matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(
     lambda x: group_notes(x, middle_notes_final_group))
 
@@ -142,14 +143,6 @@ for ma in main_accords_mapping.keys():
         all_result.append(result_df)
 
 final_result = reduce(DataFrame.unionAll, all_result)
-
-# COMMAND ----------
-
-result_path
-
-# COMMAND ----------
-
-display(final_result)
 
 # COMMAND ----------
 
@@ -262,6 +255,7 @@ cluster_mapping = cluster_result.toPandas().groupby("cluster")["atg_code"].apply
 for cluster in cluster_mapping.keys():
     d = result_dict[cluster]
     representative_items[cluster] = (cluster_mapping[cluster] & for_gender_mapping[d["for_gender"]] 
+                                     & middle_notes_mapping_profiling[d["group"]] & main_accords_mapping_profiling[d["main_accords"]]
                                             & day_night_mapping[d["day_night"]] & season_mapping[d["season"]]
                                             & sillage_mapping[d["sillage"]] & longevity_mapping[d["longevity"]])
     if len(representative_items[cluster]) == 0:
