@@ -9,7 +9,6 @@ from utils.enviroment import BASE_DIR
 
 path = "/mnt/stg/house_of_fragrance/similar_product_engine/fragrance/sim_table"
 sim_table = spark.read.parquet(path)
-display(sim_table)
 
 weights = [0.4, 0.3, 0.1, 0.2]
 
@@ -24,6 +23,7 @@ def rank_sim(item_list, represent):
     df["sim"] = represent
     df = spark.createDataFrame(df)
     df = df.join(sim_table.select("source", "sim", "weighted_score"), how="inner", on=["source", "sim"])
+    df = df.dropDuplicates()
     return df
 
 
@@ -33,15 +33,28 @@ sim_table = sim_table.withColumn(
 )
 
 cluster_output = pd.read_csv(os.path.join(BASE_DIR, "output.csv"))
+print(len(np.unique(cluster_output[["atg_code"]])))
 
 all_rank = []
 for cluster in np.unique(cluster_output["cluster"]):
     subdf = cluster_output[cluster_output["cluster"] == cluster]
-    rep = np.random.choice(subdf[subdf["rank"] == 1]["atg_code"].values, 1)
-    rank = rank_sim(subdf[["atg_code"]].values, rep).toPandas()
-    rank = rank.sort_values(by="weighted_score", ascending=False).reset_index(name="rank")
+    if len(subdf[subdf["rank"] == 1]) > 0:
+        rep = np.random.choice(subdf[subdf["rank"] == 1]["atg_code"].values, 1)[0]
+    else:
+        rep = np.random.choice(subdf["atg_code"].values, 1)[0]
+    rank = rank_sim(np.unique(subdf[["atg_code"]].values), rep).toPandas()
+    rank = rank.sort_values(by="weighted_score", ascending=False).reset_index(drop=True)
+    rank["rank"] = range(1, len(rank) + 1)
     all_rank.append(rank)
 
 all_rank = pd.concat(all_rank).rename(columns={"source": "atg_code"})[["atg_code", "rank"]]
-cluster_output = cluster_output.merge(all_rank, how="inner", on="atg_code")
+cluster_output = cluster_output.drop(columns="rank").merge(all_rank, how="inner", on="atg_code").drop_duplicates()
 display(cluster_output)
+
+# COMMAND ----------
+
+cluster_output.to_csv(os.path.join(BASE_DIR, "output_ranked.csv"), index=False)
+
+# COMMAND ----------
+
+
