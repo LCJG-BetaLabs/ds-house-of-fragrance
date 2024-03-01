@@ -23,6 +23,14 @@ matching = spark.table(LC_FRAGRANTICA_MATCHING)
 
 # COMMAND ----------
 
+cluster_pd = result.toPandas()
+cluster_pd["cluster"] = cluster_pd["cluster"].apply(
+    lambda x: "_".join([x.split("_")[0], x.split("_")[1], x.split("_")[3]])
+)
+result = spark.createDataFrame(cluster_pd)
+
+# COMMAND ----------
+
 result = result.withColumn("dummy", f.lit(1))
 
 # COMMAND ----------
@@ -102,11 +110,19 @@ def combine(data, key1, key2, _as=None):
 
 # COMMAND ----------
 
-count_pivot_table(final_df, "dummy", "atg_code")
+os.makedirs("/tmp/hof/", exist_ok=True)
 
 # COMMAND ----------
 
-count_pivot_table(final_df, "for_gender", "atg_code")
+count_pivot_table(final_df, "dummy", "atg_code").toPandas().to_csv(
+    "/tmp/hof/profiling_result.csv", index=False,
+)
+
+# COMMAND ----------
+
+count_pivot_table(final_df, "for_gender", "atg_code").toPandas().to_csv(
+    "/tmp/hof/profiling_result.csv", mode="a", index=False
+)
 
 # COMMAND ----------
 
@@ -119,7 +135,9 @@ count_pivot_table(df, "middle_notes", "atg_code")
 
 udf_group_notes = group_notes_udf(middle_notes_mapping)
 df = df.withColumn("group", udf_group_notes(df["middle_notes"]))
-count_pivot_table(df, "group", "atg_code")
+count_pivot_table(df, "group", "atg_code").toPandas().to_csv(
+    "/tmp/hof/profiling_result.csv", mode="a", index=False,
+)
 
 # COMMAND ----------
 
@@ -145,7 +163,9 @@ count_pivot_table(spark.createDataFrame(df), "main_accords", "atg_code")
 
 # only consider the top main accords -> and grouped
 df["main_accords"] = df["main_accords"].apply(lambda x: group_accords(x))
-count_pivot_table(spark.createDataFrame(df), "main_accords", "atg_code")
+count_pivot_table(spark.createDataFrame(df), "main_accords", "atg_code").toPandas().to_csv(
+    "/tmp/hof/profiling_result.csv", mode="a", index=False,
+)
 
 # COMMAND ----------
 
@@ -160,11 +180,15 @@ df["season"] = df["season_rating"].apply(lambda d: get_season(d))
 
 # COMMAND ----------
 
-count_pivot_table(spark.createDataFrame(df), "day_night", "atg_code")
+count_pivot_table(spark.createDataFrame(df), "day_night", "atg_code").toPandas().to_csv(
+    "/tmp/hof/profiling_result.csv", mode="a", index=False,
+)
 
 # COMMAND ----------
 
-count_pivot_table(spark.createDataFrame(df), "season", "atg_code")
+count_pivot_table(spark.createDataFrame(df), "season", "atg_code").toPandas().to_csv(
+    "/tmp/hof/profiling_result.csv", mode="a", index=False,
+)
 
 # COMMAND ----------
 
@@ -180,11 +204,22 @@ df["longevity"] = df["longevity"].apply(lambda d: get_max_dict_key(d))
 
 # COMMAND ----------
 
-count_pivot_table(spark.createDataFrame(df), "sillage", "atg_code")
+count_pivot_table(spark.createDataFrame(df), "sillage", "atg_code").toPandas().to_csv(
+    "/tmp/hof/profiling_result.csv", mode="a", index=False,
+)
 
 # COMMAND ----------
 
-count_pivot_table(spark.createDataFrame(df), "longevity", "atg_code")
+count_pivot_table(spark.createDataFrame(df), "longevity", "atg_code").toPandas().to_csv(
+    "/tmp/hof/profiling_result.csv", mode="a", index=False,
+)
+
+# COMMAND ----------
+
+dbutils.fs.cp(
+    f"file:/tmp/hof/profiling_result.csv", "/mnt/stg/house_of_fragrance/", # recurse=True
+)
+# shutil.rmtree("/tmp/hof/") 
 
 # COMMAND ----------
 

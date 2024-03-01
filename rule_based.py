@@ -12,7 +12,7 @@ import pyspark.sql.functions as f
 from unidecode import unidecode
 from utils.enviroment import LC_FRAGRANTICA_MATCHING, BASE_DIR
 from utils.functions import (
-    get_season, get_max_dict_key, group_accords, group_notes
+    get_season, get_max_dict_key, group_accords, group_notes, get_day_night,
 )
 
 # COMMAND ----------
@@ -77,24 +77,42 @@ middle_notes_final_group = {
 # COMMAND ----------
 
 matching_result_pd = matching_result.toPandas()
-matching_result_pd = matching_result_pd[["atg_code", "for_gender", "season_rating", "main_accords", "middle_notes"]]
+matching_result_pd = matching_result_pd[
+    ["atg_code", "for_gender", "season_rating", "main_accords", "top_notes", "middle_notes", "base_notes","sillage", "longevity"]
+]
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(lambda x: get_max_dict_key(x))
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_grouping))
+
+main_accords_mapping_profiling = matching_result_pd.groupby("main_accords")["atg_code"].apply(set).to_dict()
+
 matching_result_pd["main_accords"] = matching_result_pd["main_accords"].apply(
     lambda x: group_accords(x, main_accords_final_group))
+matching_result_pd["day_night"] = matching_result_pd["season_rating"].apply(lambda d: get_day_night(d))
 matching_result_pd["season"] = matching_result_pd["season_rating"].apply(lambda d: get_season(d))
+matching_result_pd["sillage"] = matching_result_pd["sillage"].apply(lambda x: get_max_dict_key(x))
+matching_result_pd["longevity"] = matching_result_pd["longevity"].apply(lambda x: get_max_dict_key(x))
+matching_result_pd_backup = matching_result_pd.copy()
 
 # middle notes
 matching_result_pd = matching_result_pd.explode("middle_notes")
 matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(
     lambda x: group_notes(x, middle_notes_mapping))
+middle_notes_mapping_profiling = matching_result_pd.groupby("middle_notes")["atg_code"].apply(set).to_dict()
+
 matching_result_pd["middle_notes"] = matching_result_pd["middle_notes"].apply(
     lambda x: group_notes(x, middle_notes_final_group))
 
 season_mapping = matching_result_pd.groupby("season")["atg_code"].apply(set).to_dict()
 main_accords_mapping = matching_result_pd.groupby("main_accords")["atg_code"].apply(set).to_dict()
 middle_notes_mapping_ = matching_result_pd.groupby("middle_notes")["atg_code"].apply(set).to_dict()
+
+# COMMAND ----------
+
+for_gender_mapping = matching_result_pd.groupby("for_gender")["atg_code"].apply(set).to_dict()
+day_night_mapping = matching_result_pd.groupby("day_night")["atg_code"].apply(set).to_dict()
+sillage_mapping = matching_result_pd.groupby("sillage")["atg_code"].apply(set).to_dict()
+longevity_mapping = matching_result_pd.groupby("longevity")["atg_code"].apply(set).to_dict()
 
 # COMMAND ----------
 
@@ -125,14 +143,6 @@ for ma in main_accords_mapping.keys():
         all_result.append(result_df)
 
 final_result = reduce(DataFrame.unionAll, all_result)
-
-# COMMAND ----------
-
-result_path
-
-# COMMAND ----------
-
-display(final_result)
 
 # COMMAND ----------
 
@@ -191,6 +201,84 @@ dbutils.notebook.run(
         "result_path": save_path
     }
 )
+
+# COMMAND ----------
+
+# rank
+import numpy as np
+
+cluster_path = "/mnt/stg/house_of_fragrance/result_with_category.parquet"
+cluster_result = spark.read.parquet(cluster_path)
+cluster_pd = cluster_result.toPandas()
+cluster_pd["cluster"] = cluster_pd["cluster"].apply(
+    lambda x: "_".join([x.split("_")[0], x.split("_")[1], x.split("_")[3]])
+)
+cluster_result = spark.createDataFrame(cluster_pd)
+cluster_result.createOrReplaceTempView("df")
+
+# COMMAND ----------
+
+# get representative items
+profiling = pd.read_csv("/dbfs/mnt/stg/house_of_fragrance/profiling_result.csv")
+profiling = profiling.set_index("dummy")
+profiling = profiling.drop(index=[np.nan])
+
+# COMMAND ----------
+
+features = ["for_gender", "group", "main_accords", "day_night", "season", "sillage", "longevity"]
+result_dict = {}
+for i, f in enumerate(features):
+    if i < len(features) - 1:
+        subdf = profiling[features[i]:features[i+1]]
+    else:
+        subdf = profiling[features[i]:]
+    subdf = subdf.drop(index=[fe for fe in features if fe in subdf.index])
+
+    for column in subdf.columns:
+        
+        max_index = subdf[[column]].astype(int).idxmax()
+        if column not in result_dict:
+            result_dict[column] = {f: max_index.iloc[0]}
+        else:
+            result_dict[column][f] = max_index.iloc[0]
+
+# COMMAND ----------
+
+result_dict
+
+# COMMAND ----------
+
+# for each cluster, get most representative item
+representative_items = {}
+cluster_mapping = cluster_result.toPandas().groupby("cluster")["atg_code"].apply(set).to_dict()
+
+for cluster in cluster_mapping.keys():
+    d = result_dict[cluster]
+    representative_items[cluster] = (cluster_mapping[cluster] & for_gender_mapping[d["for_gender"]] 
+                                     & middle_notes_mapping_profiling[d["group"]] & main_accords_mapping_profiling[d["main_accords"]]
+                                            & day_night_mapping[d["day_night"]] & season_mapping[d["season"]]
+                                            & sillage_mapping[d["sillage"]] & longevity_mapping[d["longevity"]])
+    if len(representative_items[cluster]) == 0:
+        print(f"{cluster} has no representative items")
+
+# COMMAND ----------
+
+# create output
+output_df = pd.merge(cluster_result.toPandas(), matching_result_pd_backup, on="atg_code", how="left")
+output_df["rank"] = output_df["atg_code"].apply(lambda a: 1 if a in list(itertools.chain.from_iterable([list(s) for s in list(representative_items.values())])) else None)
+
+# COMMAND ----------
+
+output_df.head()
+
+# COMMAND ----------
+
+output_df = output_df[["atg_code", "brand_desc", "cluster", "category", "main_accords", "sillage", "longevity", "day_night", "top_notes", "middle_notes", "base_notes", "rank"]]
+
+# COMMAND ----------
+
+# save output as csv
+output_df.to_csv(os.path.join(BASE_DIR, "output.csv"), index=False)
 
 # COMMAND ----------
 
